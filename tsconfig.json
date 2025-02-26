@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                       // Версия ECMAScript для компиляции
+    "module": "CommonJS",                     // Модульная система Node.js
+    "outDir": "./dist",                       // Директория, куда будет компилироваться код
+    "rootDir": "./src",                       // Корневая директория проекта
+    "strict": true,                           // Включаем строгий режим
+    "esModuleInterop": true,                  // Упрощает импорт модулей
+    "skipLibCheck": true,                     // Пропускает проверку типа библиотек
+    "forceConsistentCasingInFileNames": true // Обеспечивает строгую консистентность имен файлов
+  },
+  "include": ["src/**/*"],                     // Включаем все файлы из папки src
+  "exclude": ["node_modules", "**/*.spec.ts"] // Исключаем node_modules и тестовые файлы
+}
