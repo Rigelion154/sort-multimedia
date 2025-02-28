@@ -29,23 +29,43 @@ class MultimediaSorterClient {
 
         try {
             const folderFiles = await readdir(folderPath)
-            const filesStatList = []
 
-            for (const folderFile of folderFiles) {
-                const folderFilePath = join(folderPath, folderFile)
+            const resultStatList = []
+
+            for (const file of folderFiles) {
+                const filePath = join(folderPath, file)
+                const extension = file.split('.').pop()?.toLowerCase();
+                const isImage = this.photoExtensions.includes(extension ?? '');
+                const isVideo = this.videoExtensions.includes(extension ?? '');
 
                 try {
-                const folderFileStat = await stat(folderFilePath)
-                filesStatList.push({
-                    fileName: folderFile,
-                    isDirectory: folderFileStat.isDirectory(),
-                    createdAt: folderFileStat.mtime
-                })
+                    const fileStat = await stat(filePath)
+                    const filetype = fileStat.isDirectory() ? 'directory' : isImage ? 'image' : isVideo ? 'video' : 'file'
+
+                    resultStatList.push({
+                        fileName: file,
+                        isDirectory: fileStat.isDirectory(),
+                        createdAt: fileStat.mtime,
+                        isLocked: false,
+                        filetype
+                    })
                 } catch (error) {
-                    console.log(error)
+                    resultStatList.push({
+                        fileName: file,
+                        isLocked: true,
+                        filetype: 'warning'
+                    })
+                    console.error(error)
                 }
             }
 
+            const filesStatList = resultStatList.sort((a, b) => {
+                if (a.isDirectory === b.isDirectory) {
+                    return 0;
+                }
+                return a.isDirectory ? -1 : 1;
+            })
+            
             res.status(200).send({hasErrors: false, folderPath, filesStatList})
         } catch (error) {
             console.log(error)
