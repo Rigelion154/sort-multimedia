@@ -1,9 +1,10 @@
 import {Request, Response} from 'express'
-import {readdir} from "node:fs/promises";
+import {readdir, stat} from "node:fs/promises";
+import {join} from 'node:path';
 
 class MultimediaSorterClient {
     sourcePath: string | null = null;
-    targetPath: string | null = null;
+    destinationPath: string | null = null;
     photoExtensions: string[] = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
     videoExtensions: string[] = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
 
@@ -11,7 +12,7 @@ class MultimediaSorterClient {
     }
 
     setPath = async (req: Request, res: Response) => {
-        const {newPath, type} = req.body
+        const {folderPath, type} = req.body
 
         if (!type) {
             res.status(404).send({hasErrors: true, message: 'Укажите тип пути'})
@@ -19,17 +20,35 @@ class MultimediaSorterClient {
         }
 
         if (type === 'source') {
-            this.sourcePath = newPath
+            this.sourcePath = folderPath
         }
 
         if (type === 'target') {
-            this.targetPath = newPath
+            this.destinationPath = folderPath
         }
 
         try {
-            const items = await readdir(newPath)
-            res.status(200).send({hasErrors: false, data: {newPath, items}})
+            const folderFiles = await readdir(folderPath)
+            const filesStatList = []
+
+            for (const folderFile of folderFiles) {
+                const folderFilePath = join(folderPath, folderFile)
+
+                try {
+                const folderFileStat = await stat(folderFilePath)
+                filesStatList.push({
+                    fileName: folderFile,
+                    isDirectory: folderFileStat.isDirectory(),
+                    createdAt: folderFileStat.mtime
+                })
+                } catch (error) {
+                    console.log(error)
+                }
+            }
+
+            res.status(200).send({hasErrors: false, folderPath, filesStatList})
         } catch (error) {
+            console.log(error)
             res.status(404).send({hasErrors: true, message: 'Указанный путь не существует'})
         }
     }
