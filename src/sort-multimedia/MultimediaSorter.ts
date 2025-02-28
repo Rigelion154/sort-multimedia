@@ -1,6 +1,7 @@
 import {Request, Response} from 'express'
-import {readdir, stat} from "node:fs/promises";
+import {mkdir, readdir, rename, stat} from "node:fs/promises";
 import {join} from 'node:path';
+import moment from "moment";
 
 class MultimediaSorterClient {
     sourcePath: string | null = null;
@@ -23,13 +24,12 @@ class MultimediaSorterClient {
             this.sourcePath = folderPath
         }
 
-        if (type === 'target') {
+        if (type === 'destination') {
             this.destinationPath = folderPath
         }
 
         try {
             const folderFiles = await readdir(folderPath)
-
             const resultStatList = []
 
             for (const file of folderFiles) {
@@ -65,10 +65,9 @@ class MultimediaSorterClient {
                 }
                 return a.isDirectory ? -1 : 1;
             })
-            
+
             res.status(200).send({hasErrors: false, folderPath, filesStatList})
         } catch (error) {
-            console.log(error)
             res.status(404).send({hasErrors: true, message: 'Указанный путь не существует'})
         }
     }
@@ -91,6 +90,69 @@ class MultimediaSorterClient {
         res.status(404).send({hasErrors: true, message: 'Ошибка при добавлении расширения'})
     }
 
+    gallerySort = async (res: Response) => {
+        if (!this.sourcePath) {
+            res.status(404).send({hasErrors: true, message: 'Укажите путь к исходным данным'})
+            return
+        }
+
+        if (!this.destinationPath) {
+            res.status(404).send({hasErrors: true, message: 'Укажите путь к конечной папке'})
+            return
+        }
+
+        if (this.sourcePath && this.destinationPath) {
+            try {
+                const folderFiles = await readdir(this.sourcePath)
+
+                for (const file of folderFiles) {
+                    const filePath = join(this.destinationPath, file)
+                    const extension = file.split('.').pop()?.toLowerCase();
+                    const isImage = this.photoExtensions.includes(extension ?? '');
+                    const isVideo = this.videoExtensions.includes(extension ?? '');
+
+                    try {
+                        const fileStat = await stat(filePath)
+
+                        if (fileStat.isFile() && (isImage || isVideo)) {
+                            const fileCreatedAt = fileStat.mtime
+                            const createdAtYear = moment(fileCreatedAt).format('YYYY');
+                            const createdAtMonth = moment(fileCreatedAt).format('MMMM');
+                            const yearFolderPath = join(this.destinationPath, createdAtYear)
+                            const monthFolderPath = join(yearFolderPath, createdAtMonth)
+
+                            try {
+                                await stat(yearFolderPath)
+                            } catch {
+                                await mkdir(yearFolderPath, {recursive: true})
+                            }
+
+                            try {
+                                await stat(monthFolderPath)
+                            } catch {
+                                await mkdir(monthFolderPath, {recursive: true})
+                            }
+
+                            let newFilePath = join(monthFolderPath, file);
+
+                            try {
+                                await stat(newFilePath);
+                                console.log(`Файл ${file} уже существует в папке ${monthFolderPath}. Пропуск.`);
+                            } catch {
+                                await rename(this.destinationPath, newFilePath);
+                                console.log(`Файл ${file} перемещён в ${newFilePath}`);
+                            }
+                        }
+                    } catch (error) {
+                        console.log('fileStat error', error)
+
+                    }
+                }
+            } catch (error) {
+                console.log('readdir error')
+            }
+        }
+    }
 }
 
 export const MultimediaSorter = new MultimediaSorterClient()

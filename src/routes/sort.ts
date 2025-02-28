@@ -3,5 +3,6 @@ import {MultimediaSorter} from "../sort-multimedia/MultimediaSorter";
 
 export const sortRouter = express.Router()
 
+sortRouter.post('/', MultimediaSorter.gallerySort)
 sortRouter.post('/path', MultimediaSorter.setPath)
 sortRouter.post('/extension', MultimediaSorter.addExtension)
